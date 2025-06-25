@@ -1,0 +1,16 @@
+{
+  "name": "tailwindcss",
+  "packageManager": "yarn@4.9.2",
+  "dependencies": {
+    "@tailwindcss/postcss": "^4.1.10",
+    "express": "^5.1.0",
+    "nodemon": "^3.1.10",
+    "postcss": "^8.5.6",
+    "postcss-cli": "^11.0.1",
+    "tailwindcss": "^4.1.10"
+  },
+  "scripts": {
+    "watch": "postcss globals.css -o dist/styles.css --watch",
+    "serve": "nodemon app.js"
+  }
+}
