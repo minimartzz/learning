@@ -19,6 +19,7 @@
 ![Jupyter](https://img.shields.io/badge/Jupyter-F37626.svg?&style=for-the-badge&logo=Jupyter&logoColor=white)
 ![Pandas](https://img.shields.io/badge/Pandas-2C2D72?style=for-the-badge&logo=pandas&logoColor=white)
 ![Tailwindcss](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
+![Next JS](https://img.shields.io/badge/Next-black?style=for-the-badge&logo=next.js&logoColor=white)
 
 ---
 
@@ -42,15 +43,15 @@ A collection of code snippets and notes from my various learnings and tutorials
 ## :file_folder: Details on Data
 
 - **dask** - Distributed data processing library for Big Data
-- **ds-and-algo** - Collection of code snippets for common data structures and algorithms
 - **modern_pandas** - Code snippets for using pandas more efficiently
+- **NEXT.js** - Sample NEXT.js project to learn how to use the framework
 - **tailwindcss** - Tutorial on how to use tailwind to style webpages
 
 ## :handshake: Contact
 
 Author: Martin Ho
 
-Project Link: []()
+Project Link: [Github](https://github.com/minimartzz/learning)
 
 <!-- Acknowledgments -->
 
