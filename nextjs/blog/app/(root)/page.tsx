@@ -1,6 +1,10 @@
 import Image from "next/image";
 import SearchForm from "@/components/SearchForm";
-import StartupCard from "@/components/StartupCard";
+import StartupCard, { StartupCardType } from "@/components/StartupCard";
+import { STARTUP_QUERY } from "@/lib/queries";
+import { sanityFetch } from "@/sanity/lib/live";
+import { SanityLive } from "@/lib/live";
+import { auth } from "@/auth";
 
 export default async function Home({
   searchParams,
@@ -8,19 +12,12 @@ export default async function Home({
   searchParams: Promise<{ query?: string }>;
 }) {
   const query = (await searchParams).query;
+  const params = { search: query || null };
+  const { data: posts } = await sanityFetch({ query: STARTUP_QUERY, params });
 
-  const posts = [
-    {
-      _createdAt: new Date(),
-      views: 55,
-      author: { _id: 1, name: "Martin" },
-      _id: 1,
-      description: "This is a description",
-      image: "https://hatrabbits.com/wp-content/uploads/2017/01/random.jpg",
-      category: "Robots",
-      title: "We Robots",
-    },
-  ];
+  const session = await auth();
+
+  console.log(session?.id);
 
   return (
     <>
@@ -43,7 +40,7 @@ export default async function Home({
 
         <ul className="mt-7 card_grid">
           {posts?.length > 0 ? (
-            posts.map((post: StartupCardType, index: number) => (
+            posts.map((post: StartupCardType) => (
               <StartupCard key={post?._id} post={post} />
             ))
           ) : (
@@ -51,6 +48,8 @@ export default async function Home({
           )}
         </ul>
       </section>
+
+      <SanityLive />
     </>
   );
 }

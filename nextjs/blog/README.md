@@ -34,3 +34,26 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Useful Commands
+
+- Extracting schemas from sanity - `npx sanity@latest schema extract --path=./sanity/extract.json`
+    - Create a `sanity-typegen.json` configuration file in the root of the project
+    - Run `npx sanity@latest typegen generate` to create a type.ts file that contains all the types within our schemas
+    - Automate the process by adding a the same commands to scripts in package.json.
+- Enabling PPR loading
+
+```
+// next.config.ts
+{
+  ...,
+  experimental: {
+    ppr: "incremental"
+  },
+  devIndicators: {
+    appIsrStatus: true,
+    buildActivity: true,
+    buildActivityPosition: "bottom-right"
+  }
+}
+```
