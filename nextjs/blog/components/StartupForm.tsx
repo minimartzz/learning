@@ -10,6 +10,7 @@ import { formSchema } from "@/lib/validation";
 import z from "zod";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { createPitch } from "@/lib/actions";
 
 const StartupForm = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -28,21 +29,17 @@ const StartupForm = () => {
 
       await formSchema.parseAsync(formValues);
 
-      console.log(formValues);
+      const result = await createPitch(prevState, formData, pitch);
 
-      // https://images.ctfassets.net/hrltx12pl8hq/28ECAQiPJZ78hxatLTa7Ts/2f695d869736ae3b0de3e56ceaca3958/free-nature-images.jpg
-      // const result = await createIdea(prevState, formData, pitch)
-      // console.log(result)
+      if (result.status === "SUCCESS") {
+        toast.success("Successful Submit", {
+          description: "Form submitted successfully",
+        });
 
-      // if (result.status === "SUCCESS") {
-      //   toast.success("Successful Submit", {
-      //      description: "Form submitted successfully"
-      //   });
+        router.push(`/startup/${result._id}`);
+      }
 
-      //   router.push(`/startup/{result.id}`)
-      // }
-
-      // return result
+      return result;
     } catch (error) {
       if (error instanceof z.ZodError) {
         const fieldErrors = error.flatten().fieldErrors;
