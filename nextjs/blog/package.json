@@ -13,6 +13,7 @@
     "next": "$next"
   },
   "dependencies": {
+    "@radix-ui/react-avatar": "^1.1.10",
     "@radix-ui/react-slot": "^1.2.3",
     "@sanity/image-url": "^1.1.0",
     "@sanity/vision": "^3.99.0",
@@ -21,6 +22,7 @@
     "@uiw/react-md-editor": "^4.0.8",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "corepack": "^0.34.0",
     "easymde": "^2.20.0",
     "lucide-react": "^0.525.0",
     "markdown-it": "^14.1.0",

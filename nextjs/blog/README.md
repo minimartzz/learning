@@ -38,9 +38,9 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 ## Useful Commands
 
 - Extracting schemas from sanity - `npx sanity@latest schema extract --path=./sanity/extract.json`
-    - Create a `sanity-typegen.json` configuration file in the root of the project
-    - Run `npx sanity@latest typegen generate` to create a type.ts file that contains all the types within our schemas
-    - Automate the process by adding a the same commands to scripts in package.json.
+  - Create a `sanity-typegen.json` configuration file in the root of the project
+  - Run `npx sanity@latest typegen generate` to create a type.ts file that contains all the types within our schemas
+  - Automate the process by adding a the same commands to scripts in package.json.
 - Enabling PPR loading
 
 ```
@@ -57,3 +57,7 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
   }
 }
 ```
+
+## Youtube Link
+
+https://www.youtube.com/watch?v=Zq5fmkH0T78&t=97s
