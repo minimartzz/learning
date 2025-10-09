@@ -46,6 +46,7 @@ A collection of code snippets and notes from my various learnings and tutorials
 - **modern_pandas** - Code snippets for using pandas more efficiently
 - **NEXT.js** - Sample NEXT.js project to learn how to use the framework
 - **tailwindcss** - Tutorial on how to use tailwind to style webpages
+- **makemore** - Runthrough of building the transformer architecture from scratch (07/10/2025)
 
 ## :handshake: Contact
 
