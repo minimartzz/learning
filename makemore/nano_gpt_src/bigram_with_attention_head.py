@@ -5,9 +5,9 @@ from torch.nn import functional as F
 # ---------- Hyperparameters ----------
 BATCH_SIZE = 32
 BLOCK_SIZE = 8
-MAX_ITERS = 3000
+MAX_ITERS = 5000
 EVAL_ITERS = 200
-LEARNING_RATE = 1e-2
+LEARNING_RATE = 1e-3
 EVAL_INTERVAL = 300
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -63,18 +63,74 @@ def estimate_loss():
   model.train()
   return out
 
+
+# ---------- Attention Layers ----------
+class Head(nn.Module):
+  """ Creates a single head of self-attention """
+  def __init__(self, head_size):
+    super().__init__()
+    self.key = nn.Linear(N_EMBD, head_size, bias=False)
+    self.query = nn.Linear(N_EMBD, head_size, bias=False)
+    self.value = nn.Linear(N_EMBD, head_size, bias=False)
+    # Buffers are parameters that are not trained by the optimiser
+    # https://discuss.pytorch.org/t/what-is-the-difference-between-register-buffer-and-register-parameter-of-nn-module/32723
+    self.register_buffer('tril', torch.tril(torch.ones(BLOCK_SIZE, BLOCK_SIZE)))
+  
+  def forward(self, x):
+    B, T, C = x.shape
+    k = self.key(x)
+    q = self.query(x)
+
+    # Compute attention scores ("affinities")
+    wei = q @ k.transpose(-2, -1) * C**-0.5
+    wei = wei.masked_fill(self.tril[:T, :T] == 0, float('-inf'))
+    wei = F.softmax(wei, dim=-1)
+
+    # Perform weighed aggregation of the values
+    v = self.value(x)
+    out = wei @ v
+    return out
+
+class MultiHeadAttention(nn.Module):
+  """ Multiple hears of self-attention in parallel """
+  def __init__(self, num_heads, head_size):
+    super().__init__()
+    self.heads = nn.ModuleList([Head(head_size) for _ in range(num_heads)])
+  
+  def forward(self, x):
+    return torch.cat([h(x) for h in self.heads], dim=-1)
+
+
+# ---------- Feed-forward Layer ----------
+class FeedForward(nn.Module):
+  def __init__(self, n_embd):
+    super().__init__()
+    self.net = nn.Sequential(
+      nn.Linear(n_embd, n_embd),
+      nn.ReLU()
+    )
+  
+  def forward(self, x):
+    return self.net(x)
+
+
 # ---------- Bigram Model ----------
 class BigramLanguageModel(nn.Module):
   def __init__(self):
     super().__init__()
     self.token_embedding_table = nn.Embedding(vocab_size, N_EMBD)
-    # self.position_embedding_table = nn.Embedding(BLOCK_SIZE, n_embd)
-    # self.lm_head = nn.Linear(n_embd, vocab_size) 
+    self.position_embedding_table = nn.Embedding(BLOCK_SIZE, N_EMBD)
+    self.sa_heads = MultiHeadAttention(4, N_EMBD//4)
+    self.ffw = FeedForward(N_EMBD)
+    self.lm_head = nn.Linear(N_EMBD, vocab_size) 
   
   def forward(self, idx, targets=None):
+    B, T = idx.shape
     token_emb = self.token_embedding_table(idx) # (B, T, C)
-    position_emb = self.position_embedding_table(torch.arange(T, device=DEVICE))
-    x = token_emb + position_emb
+    position_emb = self.position_embedding_table(torch.arange(T, device=DEVICE)) # (T, C)
+    x = token_emb + position_emb # (B, T, C)
+    x = self.sa_heads(x) # Apply multihead self-attention (B, T, C)
+    x = self.ffw(x) # (B, T, C)
     logits = self.lm_head(x) # (B, T, vocab_size)
 
     if targets is None:
@@ -89,7 +145,9 @@ class BigramLanguageModel(nn.Module):
   
   def generate(self, idx, max_new_tokens):
     for _ in range(max_new_tokens):
-      logits, loss = self(idx)
+      # Crop idx to the last block_size token
+      idx_cond = idx[:, -BLOCK_SIZE:]
+      logits, loss = self(idx_cond)
       logits = logits[:, -1, :]
       probs = F.softmax(logits, dim=-1)
       idx_next = torch.multinomial(probs, num_samples=1)
