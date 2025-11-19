@@ -20,6 +20,7 @@
 ![Pandas](https://img.shields.io/badge/Pandas-2C2D72?style=for-the-badge&logo=pandas&logoColor=white)
 ![Tailwindcss](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
 ![Next JS](https://img.shields.io/badge/Next-black?style=for-the-badge&logo=next.js&logoColor=white)
+![HuggingFace](https://img.shields.io/badge/huggingface-%23FFD21E.svg?style=for-the-badge&logo=huggingface&logoColor=white)
 
 ---
 
@@ -47,6 +48,7 @@ A collection of code snippets and notes from my various learnings and tutorials
 - **NEXT.js** - Sample NEXT.js project to learn how to use the framework
 - **tailwindcss** - Tutorial on how to use tailwind to style webpages
 - **makemore** - Runthrough of building the transformer architecture from scratch (07/10/2025)
+- **huggingface_llm** - HuggingFace course on Large Language Models (LLM)
 
 ## :handshake: Contact
 
@@ -57,3 +59,6 @@ Project Link: [Github](https://github.com/minimartzz/learning)
 <!-- Acknowledgments -->
 
 ## :gem: Acknowledgements
+
+- Technology Badges: [Ileriayo](https://github.com/Ileriayo/markdown-badges?tab=readme-ov-file#table-of-contents), [Alexandresanlim](https://github.com/alexandresanlim/Badges4-README.md-Profile)
+- Coverage Badges: [dwyl](https://github.com/dwyl/repo-badges)
