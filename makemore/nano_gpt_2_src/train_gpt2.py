@@ -4,6 +4,7 @@ Implementing GPT-2 from scratch
 
 from dataclasses import dataclass
 import torch
+import inspect
 import torch.nn as nn
 import math
 from torch.nn import functional as F
@@ -40,13 +41,16 @@ class CausalSelfAttention(nn.Module):
     v = v.view(B, T, self.n_head, C // self.n_head).transpose(1, 2) # (B, nh, T, hs) - B, nh are "batch" dimensions
     q = q.view(B, T, self.n_head, C // self.n_head).transpose(1, 2) # (B, nh, T, hs) - B, nh are "batch" dimensions
 
-    # Attention (materialised the large (T,T) matrix for all the queries and keys)
-    att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
-    att = att.masked_fill(self.bias[:,:,:T,:T] == 0, float('-inf'))
-    att = F.softmax(att, dim=-1)
+    # # Attention (materialised the large (T,T) matrix for all the queries and keys)
+    # att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
+    # att = att.masked_fill(self.bias[:,:,:T,:T] == 0, float('-inf'))
+    # att = F.softmax(att, dim=-1)
+    # y = att @ v # (B, nh, T, T) * (B, nh, T, hs) -> (B, nh, T, hs)
+
+    # IMPROVEMENT: Flash Attention! 🤩
+    y = F.scaled_dot_product_attention(q, k, v, is_causal=True)
 
     # Compute the output
-    y = att @ v # (B, nh, T, T) * (B, nh, T, hs) -> (B, nh, T, hs)
     y = y.transpose(1, 2).contiguous().view(B, T, C) # reassemble the heads side by side
     y = self.c_proj(y)
 
@@ -194,6 +198,34 @@ class GPT(nn.Module):
           sd[k].copy_(sd_hf[k])
 
     return model
+  
+  def configure_optimizers(self, weight_decay, learning_rate, device):
+    # Start with all of the candidate parameters
+    param_dict = {pn: p for pn, p in self.named_parameters()}
+    param_dict = {pn: p for pn, p in param_dict.items() if p.requires_grad}
+
+    # Filter out those that do not require grad
+    # create optim gropus. Any parameter that is 2D will be weight decayed, otherwise no.
+    # i.e all weight tensors in matmuls + embeddings decay, all biases and layernorms don't
+    decay_params = [p for n, p in param_dict.items() if p.dim() >= 2]
+    nodecay_params = [p for n, p in param_dict.items() if p.dim() < 2]
+    optim_groups = [
+      {"params": decay_params, "weight_decay": weight_decay},
+      {"params": nodecay_params, "weight_decay": 0.0},
+    ]
+    num_decay_params = sum(p.numel() for p in decay_params)
+    num_nodecay_params = sum(p.numel() for p in nodecay_params)
+    print(f"num decayed parameter tensors: {len(decay_params)}, with {num_decay_params:,} parameters")
+    print(f"num non-decayed parameter tensors: {len(nodecay_params)}, with {num_nodecay_params:,} parameters")
+
+    # Create AdamW optimiser and use the fused version if it is available
+    fused_available = 'fused' in inspect.signature(torch.optim.AdamW).parameters
+    use_fused = fused_available and device == 'cuda'
+    print(f"Using fused AdamW: {use_fused}")
+    optimiser = torch.optim.AdamW(optim_groups, lr=learning_rate, betas=(0.9, 0.95), eps=1e-8, fused=use_fused)
+
+    return optimiser
+    
 
 
 # ---------- Data Loader ----------
@@ -247,33 +279,89 @@ torch.manual_seed(1337)
 if torch.cuda.is_available():
   torch.cuda.manual_seed(1337)
 
-train_loader = DataLoaderLite(B=8, T=1024)
+# IMPROVEMENT: Gradient accumulation: simulate any batch size by accumulating mini-batches of gradients
+total_batch_size = 2**19 # Original paper batch size is 0.5M so 2**19 is the closest
+B = 8    # Micro-batch size
+T = 1024  # Length of sequence
+assert total_batch_size % (B * T) == 0
+grad_accum_steps = total_batch_size // (B * T)
+print(f"Total desired batch size: {total_batch_size}")
+print(f"=> Calculated gradient accumulation steps: {grad_accum_steps}")
+
+train_loader = DataLoaderLite(B=B, T=T)
 
 # Quantisation
 torch.set_float32_matmul_precision('high')
 
 # Get logits
-model = GPT(GPTConfig())
+# IMPROVEMENT: Make the parameters divisible by 2
+model = GPT(GPTConfig(vocab_size=50304))
 model.to(device)
 
-# Training loop
-optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
-for i in range(50):
-  time0 = time.time()
-  x, y = train_loader.next_batch()
-  x, y = x.to(device), y.to(device)
+# IMPROVEMENT: Compile the model for speed up
+model = torch.compile(model)
 
+
+# Learning rate scheduler
+max_lr = 6e-4
+min_lr = max_lr * 0.1
+warmup_steps = 10
+max_steps = 50
+
+def get_lr(it):
+  # Initialisation for warmup
+  if it < warmup_steps:
+    return max_lr * (it + 1) / warmup_steps
+
+  # If it > lr_decay_iters, returning min learning rate
+  if it > max_steps:
+    return min_ir
+  
+  # In between use cosine decay down to min leraning rate
+  decay_ratio = (it - warmup_steps) / (max_steps - warmup_steps)
+  assert 0 <= decay_ratio <= 1
+  coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))
+  return min_lr + coeff * (max_lr - min_lr)
+
+
+# Training loop
+# optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4, betas=(0.9, 0.95), eps=1e-8)
+# IMPROVEMENT: Weight decay at initialisation
+optimizer = model.configure_optimizers(weight_decay=0.1, learning_rate=6e-4, device=device)
+
+for step in range(max_steps):
+  time0 = time.time()
   optimizer.zero_grad()
-  logits, loss = model(x, y)
-  loss.backward()
+  loss_accum = 0.0
+
+  for _ in range(grad_accum_steps):
+    x, y = train_loader.next_batch()
+    x, y = x.to(device), y.to(device)
+    
+    # Mixed precision model - changing logits and loss to BF16 dtype
+    with torch.autocast(device_type=device, dtype=torch.bfloat16):
+      logits, loss = model(x, y)
+    loss = loss / grad_accum_steps # Scale the loss
+    loss_accum += loss.detach()
+    loss.backward()
+
+  # IMPROVEMENT: Gradient norm clipping
+  norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+
+  # IMPROVEMENT: Introduce learning rate scheduler - cosine decay
+  lr = get_lr(step)
+  for param_group in optimizer.param_groups:
+    param_group['lr'] = lr
+
   optimizer.step()
 
   torch.cuda.synchronize() # Uncomment this when timing for GPU
   time1 = time.time()
   dt = (time1 - time0) * 1000
-  tokens_per_sec = (train_loader.B * train_loader.T) / (time1 - time0)
+  tokens_processed = train_loader.B * train_loader.T * grad_accum_steps
+  tokens_per_sec = tokens_processed / dt
 
-  print(f"Step {i}: Loss {loss.item()}, Time {dt:.2f}ms, tok/sec: {tokens_per_sec:.2f}")
+  print(f"Step {step}: Loss {loss_accum.item():.6f} | lr: {lr:.4f} | Time: {dt:.2f}ms | norm: {norm:.4f} | tok/sec: {tokens_per_sec:.2f}")
 
 import sys; sys.exit(0)
 
