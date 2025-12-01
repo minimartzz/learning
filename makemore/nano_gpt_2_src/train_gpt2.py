@@ -265,15 +265,41 @@ class DataLoaderLite:
 
 
 # ---------- Training Loop ----------
+
+# ========== Distributed Processing ==========
+# set up DDP (distributed data parallel)
+from torch.distributed import init_process_group, destroy_process_group
+from torch.nn.parallel import DistributedDataParallel as DDP
+import torch.distributed as dist
+import os
 import time
-# Autodetect device
-device = "cpu"
-if torch.cuda.is_available():
-  device = "cuda"
-elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
-  device = "mps"
-# device = "cpu" # Temporary override
-print(f"Using device: {device}")
+
+ddp = int(os.environ.get('RANK', -1)) != -1 # Check if it's a ddp run
+if ddp:
+  assert torch.cuda.is_available(), "DDP requires CUDA"
+  init_process_group(backend='nccl')
+  ddp_rank = int(os.environ['RANK'])
+  ddp_local_rank = int(os.environ['LOCAL_RANK'])
+  ddp_world_size = int(os.environ['WORLD_SIZE'])
+  device = f"cuda:{ddp_local_rank}"
+  torch.cuda.set_device(device)
+  master_process = dpp_rank == 0 # tmaster process does logging, checkpointing, etc.
+else:
+  # Vanilla non-DDP run
+  ddp_rank = 0
+  ddp_local_rank = 0
+  ddp_world_size = 1
+  master_process = True
+
+  # ========== Auto detect device for single device computation ==========
+  # Autodetect device
+  device = "cpu"
+  if torch.cuda.is_available():
+    device = "cuda"
+  elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+    device = "mps"
+  # device = "cpu" # Temporary override
+  print(f"Using device: {device}")
 
 torch.manual_seed(1337)
 if torch.cuda.is_available():
@@ -334,6 +360,7 @@ for step in range(max_steps):
   optimizer.zero_grad()
   loss_accum = 0.0
 
+  # IMPROVEMENT: Simulate any batch size with gradient accumulation
   for _ in range(grad_accum_steps):
     x, y = train_loader.next_batch()
     x, y = x.to(device), y.to(device)
