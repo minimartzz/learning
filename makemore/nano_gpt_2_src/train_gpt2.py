@@ -7,6 +7,7 @@ import torch
 import inspect
 import torch.nn as nn
 import math
+import numpy as np
 from torch.nn import functional as F
 
 # ---------- Component Definitions ----------
@@ -231,23 +232,46 @@ class GPT(nn.Module):
 # ---------- Data Loader ----------
 import tiktoken
 
+def load_tokens(filename):
+  npt = np.load(filename)
+  ptt = torch.tensor(npt, dtype=torch.long)
+  return ptt
+
 class DataLoaderLite:
-  def __init__(self, B, T, process_rank, num_processes):
+  def __init__(self, B, T, process_rank, num_processes, split):
     self.B = B
     self.T = T
     self.process_rank = process_rank
     self.num_processes = num_processes
+    assert split in {'train', 'val'}
 
-    # Load and encode data
-    with open('../data/shakespeare.txt') as f:
-      text = f.read()
-    enc = tiktoken.get_encoding('gpt2')
-    tokens = enc.encode(text)
-    self.tokens = torch.tensor(tokens)
-    print(f"Loaded {len(tokens)} tokens")
-    print(f"1 Epoch contains {self.tokens.size(0) // (self.B * self.T)} batches")
 
+    # ========== Shakespeare ==========
+    # # Load and encode data
+    # with open('../data/shakespeare.txt') as f:
+    #   text = f.read()
+    # enc = tiktoken.get_encoding('gpt2')
+    # tokens = enc.encode(text)
+    # self.tokens = torch.tensor(tokens)
+    # print(f"Loaded {len(tokens)} tokens")
+    # print(f"1 Epoch contains {self.tokens.size(0) // (self.B * self.T)} batches")
+
+    # ========== FineWeb Shards ==========
+    data_root = "data/edu_fineweb10B"
+    shards = os.listdir(data_root)
+    shards = [s for s in shards if split in s]
+    shards = sorted(shards)
+    shards = [os.path.join(data_root, s) for s in shards]
+    self.shards = shards
+    assert len(shards) > 0, f"No shards found for split {split}"
+    if master_process:
+      print(f"Found {len(shards)} shards for split {split}")
+    self.reset()
+
+  def reset(self):
     # Position
+    self.current_shard = 0
+    self.tokens = load_tokens(self.shards[self.current_shard])
     self.current_position = self.B * self.T * self.process_rank
     
   def next_batch(self):
@@ -317,7 +341,8 @@ if master_process:
   print(f"Total desired batch size: {total_batch_size}")
   print(f"=> Calculated gradient accumulation steps: {grad_accum_steps}")
 
-train_loader = DataLoaderLite(B=B, T=T)
+train_loader = DataLoaderLite(B=B, T=T, process_rank=ddp_rank, num_processes=ddp_world_size, split='train')
+val_loader = DataLoaderLite(B=B, T=T, process_rank=ddp_rank, num_processes=ddp_world_size, split='val')
 
 # IMPROVEMENT: Quantisation
 torch.set_float32_matmul_precision('high')
@@ -337,8 +362,11 @@ raw_model = model.module if ddp else model # always contains the "raw" unwrapped
 # IMPROVEMENT: Learning rate scheduler
 max_lr = 6e-4
 min_lr = max_lr * 0.1
-warmup_steps = 10
-max_steps = 50
+warmup_steps = 715 # GPT paper used 375M tokens for warmup: 375e6 / 2**19
+max_steps = 10973 # = 10e9 / 2**19
+
+# Total number of tokens: 10e9
+# Number of tokens processed per step: 2**19
 
 def get_lr(it):
   # Initialisation for warmup
@@ -363,6 +391,57 @@ optimizer = raw_model.configure_optimizers(weight_decay=0.1, learning_rate=6e-4,
 
 for step in range(max_steps):
   time0 = time.time()
+
+  # Every 100 steps evaluate the validation loss
+  if step % 100 == 0:
+    model.eval()
+    val_loader.reset()
+    with torch.no_grad():
+      val_loss_accum = 0.0
+      val_loss_step = 20
+      for _ in range(val_loss_step):
+        x, y = val_loader.next_batch()
+        x, y = x.to(device), y.to(device)
+        with torch.autocast(device_type=device, dtype=torch.bfloat16):
+          logits, loss = model(x, y)
+        loss = loss / val_loss_step
+        val_loss_accum += loss.detach()
+    if ddp:
+      dist.all_reduce(val_loss_accum, op=dist.ReduceOp.SUM)
+    if master_process:
+      print(f"Validation loss: {val_loss_accum.item():.4f}")
+  
+
+  # Every 100 steps (except the first one) print samples
+  if step > 0 and step % 100 == 0:
+    model.eval()
+    num_return_sequences = 4
+    max_length = 32
+    tokens = enc.encode("Hello, I'm a language model")
+    tokens.torch.tensor(tokens, dtype=torch.long)
+    xgen = tokens.to(device)
+    sample_rng = torch.Generator(device=device)
+    sample_rng.manual_seed(42 + ddp_rank)
+    while xgen.size(1) < max_length:
+      with torch.no_grad():
+        logits, loss = model(xgen)
+        # Take logits at last position
+        logits = logits[:, -1, :]
+        probs = F.softmax(logits, dim=-1)
+        # Top-k sampling of 50
+        topk_probs, topk_indices = torch.topk(probs, k=50, dim=-1)
+        # Sample from the top-k
+        ix = torch.multinomial(topk_probs, num_samples=1, replacement=True, generator=sample_rng)
+        xcol = torch.gather(topk_indices, dim=-1, index=ix)
+        xgen = torch.cat((xgen, xcol), dim=1)
+    for i in range(num_return_sequences):
+      tokens = xgen[i, :max_length].tolist()
+      decoded = enc.decode(tokens)
+      print(f"Rank {ddp_rank} sample {i}: {decoded}")
+
+
+  # Training
+  model.train()
   optimizer.zero_grad()
   loss_accum = 0.0
 
@@ -405,52 +484,3 @@ for step in range(max_steps):
 
 if ddp:
   destroy_process_group()
-
-import sys; sys.exit(0)
-
-
-
-
-
-# ---------- Run the program ----------
-
-num_return_sequence = 5
-max_length = 30
-
-# model = GPT.from_pretrained("gpt2") # Uncomment this to use pretrained GPT-2 weights
-model = GPT(GPTConfig())
-model.eval()
-model.to(device)
-
-# Convert text to tokens
-enc = tiktoken.get_encoding('gpt2')
-tokens = enc.encode("The greatest basketball player of all time is,")
-tokens = torch.tensor(tokens, dtype=torch.long)
-tokens = tokens.unsqueeze(0).repeat(num_return_sequence, 1)
-x = tokens.to('cuda')
-
-# Generate results
-torch.manual_seed(42)
-torch.cuda.manual_seed(42)
-while x.size(1) < max_length:
-  with torch.no_grad():
-    logits = model(x) # (B, T, vocab_size)
-    # Take logits at the last position
-    logits = logits[:, -1, :] # (B, vocab_size)
-    # Get probabilities
-    probs = F.softmax(logits, dim=-1)
-    # Perform topk sampling - Takes the top k highest probabilities and their corresponding indices
-    # GPT-2 takes top 50 - (B, 50)
-    topk_probs, topk_indices = torch.topk(probs, 50, dim=-1)
-    # Sample from the top-k probs
-    ix = torch.multinomial(topk_probs, 1) # (B, 1)
-    # Get the corresponding column indices
-    xcol = torch.gather(topk_indices, -1, ix) # (B, 1)
-    # Append to sequence
-    x = torch.cat((x, xcol), dim=1)
-
-# Print the generated text
-for i in range(num_return_sequence):
-  tokens = x[i, :max_length].tolist()
-  decoded = enc.decode(tokens)
-  print(">", decoded)
