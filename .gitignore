@@ -3,3 +3,4 @@
 .DS_Store
 nextjs/.next
 nextjs/node_modules
+.env
