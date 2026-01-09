@@ -21,6 +21,7 @@
 ![Tailwindcss](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
 ![Next JS](https://img.shields.io/badge/Next-black?style=for-the-badge&logo=next.js&logoColor=white)
 ![HuggingFace](https://img.shields.io/badge/huggingface-%23FFD21E.svg?style=for-the-badge&logo=huggingface&logoColor=white)
+![mlflow](https://img.shields.io/badge/mlflow-%23d9ead3.svg?style=for-the-badge&logo=numpy&logoColor=blue)
 
 ---
 
@@ -49,6 +50,7 @@ A collection of code snippets and notes from my various learnings and tutorials
 - **tailwindcss** - Tutorial on how to use tailwind to style webpages
 - **makemore** - Runthrough of building the transformer architecture from scratch (07/10/2025)
 - **huggingface_llm** - HuggingFace course on Large Language Models (LLM)
+- **mlops-zoomcamp** - Introduction to MLOps course
 
 ## :handshake: Contact
 
