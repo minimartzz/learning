@@ -1,0 +1,21 @@
+[project]
+name = "web-service"
+version = "0.1.0"
+description = "Taxi cab prediction 2025"
+authors = [
+    {name = "Minimartzz",email = "martin.ho.zy97@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "scikit-learn (>=1.8.0,<2.0.0)",
+    "flask (>=3.1.2,<4.0.0)",
+    "requests (>=2.32.5,<3.0.0)",
+    "waitress (>=3.0.2,<4.0.0)",
+    "gunicorn (>=24.1.1,<25.0.0)",
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
