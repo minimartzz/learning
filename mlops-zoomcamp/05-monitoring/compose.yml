@@ -1,0 +1,43 @@
+name: ml-zoomcamp-monitoring
+
+volumes:
+  grafana_data:
+
+networks:
+  front-tier:
+  back-tier:
+
+services:
+  db:
+    image: postgres:15.15-trixie
+    restart: always
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASS}
+    ports:
+      - "5434:5434"
+    networks:
+      - back-tier
+      - front-tier
+    command: -p 5434
+
+  adminer:
+    image: adminer:latest
+    restart: always
+    ports:
+      - "1001:8080"
+    networks:
+      - back-tier
+      - front-tier
+
+  grafana:
+    image: grafana/grafana
+    user: "472"
+    restart: always
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./config/grafana_datasources.yaml:/etc/grafana/provisioning/datasources/datasource.yml:ro
+    networks:
+      - back-tier
+      - front-tier
