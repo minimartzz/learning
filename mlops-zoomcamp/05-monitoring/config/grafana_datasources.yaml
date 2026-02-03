@@ -7,10 +7,13 @@ datasources:
   - name: PostgreSQL
     type: postgres
     access: proxy
-    url: db:5434
-    database: test
+    url: db:5432
+    isDefault: true
     user: pgadmin
     secureJsonData:
       password: "pgpassword"
     jsonData:
+      database: test
       sslmode: "disable"
+      postgresVersion: 1500
+      defaultDatabase: "test"

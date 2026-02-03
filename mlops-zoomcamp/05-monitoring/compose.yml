@@ -15,11 +15,10 @@ services:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASS}
     ports:
-      - "5434:5434"
+      - "5434:5432"
     networks:
       - back-tier
       - front-tier
-    command: -p 5434
 
   adminer:
     image: adminer:latest
