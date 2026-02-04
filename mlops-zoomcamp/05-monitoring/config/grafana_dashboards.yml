@@ -1,0 +1,13 @@
+apiVersion: 1
+
+providers:
+  - name: "Evidently Dashboards"
+    orgId: 1
+    folder: ""
+    folderUid: ""
+    type: file
+    disableDeletion: false # Allows deletion via API, but not UI
+    updateIntervalSeconds: 10
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards # Path inside the Docker container

@@ -11,9 +11,11 @@ import pandas as pd
 import io
 import psycopg
 import os
+import json
+import joblib
 from dotenv import load_dotenv
 
-from evidently import Dataset, DataDefinition, Report
+from evidently import Dataset, DataDefinition, Report, Regression
 from evidently.metrics import *
 from evidently.presets import *
 
@@ -28,21 +30,35 @@ SEND_TIMEOUT = 10
 rand = random.Random()
 
 create_table_statement = """
-DROP TABLE IF EXISTS dummy_metrics;
-CREATE TABLE dummy_metrics (
+DROP TABLE IF EXISTS evident_metrics;
+CREATE TABLE evident_metrics (
   timestamp timestamp,
-  value1 INTEGER,
-  value2 VARCHAR,
-  value3 FLOAT
+  prediction_drift FLOAT,
+  num_drifted_columns INTEGER,
+  share_missing_values FLOAT
 );
 """
 
-reference_data = pd.read_parquet("../data/clean/reference.parquet")
+# Load data
+ref = pd.read_parquet("../data/clean/reference.parquet")
+tar = pd.read_parquet("../data/raw/green_tripdata_2025-03.parquet")
+tar = tar.drop("ehail_fee", axis=1)
+
+# Load model
 with open("models/lin_reg.bin", 'rb') as f_in:
   model = joblib.load(f_in)
 
-raw_data = pd.read_parquet("../data/raw/green_tripdata_2025-03.parquet")
+# Define date start point and columns
 begin = datetime.datetime(2025, 3, 1, 0, 0)
+num_features = ['passenger_count', 'trip_distance', 'fare_amount', 'total_amount']
+cat_features = ['PULocationID', 'DOLocationID']
+
+# Define report metrics
+report = Report([
+  DataDriftPreset(),
+  DatasetMissingValueCount(),
+  ValueDrift(column="prediction")
+])
 
 def prep_db():
   with psycopg.connect(f"host=localhost port=5434 user={os.getenv("POSTGRES_USER")} password={os.getenv("POSTGRES_PASS")}", autocommit=True) as conn:
@@ -54,23 +70,52 @@ def prep_db():
       conn1.execute(create_table_statement)
 
 
-def calculate_dummy_metrics_postgresql(curr):
-  value1 = rand.randint(0, 1000)
-  value2 = str(uuid.uuid4())
-  value3 = rand.random()
+def calculate_metrics(curr, ref, tar, i):
+  # Narrow down the month range
+  current_data = tar[(tar['lpep_pickup_datetime'] >= (begin + datetime.timedelta(i)))
+  & (tar['lpep_pickup_datetime'] < (begin + datetime.timedelta(i + 1)))]
 
+  # Make prediction with model
+  current_data['prediction'] = model.predict(current_data[num_features + cat_features].fillna(0))
+
+  # Define the data schema
+  schema = DataDefinition(
+    regression=[Regression(target="duration_min", prediction="prediction")],
+    numerical_columns=num_features,
+    categorical_columns=cat_features
+  )
+
+  ref_ds = Dataset.from_pandas(
+    ref,
+    data_definition=schema
+  )
+
+  curr_ds = Dataset.from_pandas(
+    current_data,
+    data_definition=schema
+  )
+
+  # Create evidently report
+  out = report.run(reference_data=ref_ds, current_data=current_data)
+  result = json.loads(out.json())
+
+  prediction_drift = result['metrics'][17]['value']
+  num_drifted_cols = result['metrics'][0]['value']['count']
+  share_missing_values = result['metrics'][19]['value']['share']
+
+  # Push to db
   curr.execute(
-    "INSERT INTO dummy_metrics (timestamp, value1, value2, value3) VALUES (%s, %s, %s, %s)",
-    (datetime.datetime.now(pytz.timezone("Singapore")), value1, value2, value3)
+    "INSERT INTO evident_metrics (timestamp, prediction_drift, num_drifted_columns, share_missing_values) VALUES (%s, %s, %s, %s)",
+    (begin + datetime.timedelta(i), prediction_drift, num_drifted_cols, share_missing_values)
   )
 
 def main():
   prep_db()
   last_send = datetime.datetime.now() - datetime.timedelta(seconds=10)
   with psycopg.connect(f"host=localhost port=5434 dbname=test user={os.getenv("POSTGRES_USER")} password={os.getenv("POSTGRES_PASS")}", autocommit=True) as conn:
-    for i in range(0, 100):
+    for i in range(0, 30):
       with conn.cursor() as curr:
-        calculate_dummy_metrics_postgresql(curr)
+        calculate_metrics(curr, ref, tar, i)
       
       new_send = datetime.datetime.now()
       seconds_elapsed = (new_send - last_send).total_seconds()
