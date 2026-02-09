@@ -1,0 +1,16 @@
+# apiVersion, kind and metadata will always be present
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+  namespace: demo # Sends pods to specified namespace
+spec:
+  # Resource limits for the pod
+  hard:
+    cpu: "1"
+    memory: "1Gi"
+  containers:
+    - name: nginx
+      image: nginx:1.14.2
+      ports:
+        - containerPort: 80
