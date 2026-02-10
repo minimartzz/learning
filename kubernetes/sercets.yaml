@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Secret # Specifies the type of manifest it is
+metadata:
+  name: mysql-secret
+type: kuberetes.io/basic-auth
+stringData:
+  password: alta3

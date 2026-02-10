@@ -12,5 +12,42 @@ spec:
   containers:
     - name: nginx
       image: nginx:1.14.2
+
+      # Minimum and maximum amount of resources the Pod can use
+      resources:
+        requests:
+          cpu: 250m
+          memory: "65M"
+        limits:
+          cpu: 500m
+          memory: "130M"
+
       ports:
         - containerPort: 80
+    - name: sise
+      image: mhausenblas/simpleservice:0.5.0
+      ports:
+        - containerPort:9876
+
+      # Probes placed at the container level
+      # readinessProbe - can replace the liveness probe for different handling
+      livenessProbe:
+        initialDelaySeconds: 2 # How soon after creation are we probing
+        periodSeconds: 5 # How often are we probing
+        timeoutSeconds: 1 # How long giving the container to respond
+        failureThreshold: 3 # How many consecutive failures before killing the container
+        httpGet: # Method of probing
+          path: /health
+          post: 9876
+
+      # Mounting volumes to the container
+      volumeMounts:
+        - name: dc-heroes # Must match the name in the volumes section
+          mountPath: /heroes # ALERT: Any directory in the Pod that matches that config file will be wiped out
+          subPath: heroes.txt # Mounts individual files
+
+  # Mount volumes for files (like Docker)
+  volumes:
+    - name: dc-heroes
+      configMap:
+        name: dem-heroes # ALERT: Must match the created configMap `kubectl get cm`
