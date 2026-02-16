@@ -4,6 +4,12 @@ kind: Pod
 metadata:
   name: nginx
   namespace: demo # Sends pods to specified namespace
+
+  # Create tags that group Pods together
+  labels:
+    runtime: webby
+    ver: 2
+    cool: beans
 spec:
   # Resource limits for the pod
   hard:

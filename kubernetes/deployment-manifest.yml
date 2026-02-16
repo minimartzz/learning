@@ -1,0 +1,25 @@
+# ========== Deployment Manifest ==========
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    app: nginx
+spec:
+  replicas: 3
+  # Tells ALL Pods that have these key value pairs to be controlled by this deployment
+  selector:
+    matchLabels:
+      app: nginx # ALERT: The label here MUST match the one in the Pods manifest
+
+  # ========== Pods Manifest ==========
+  template:
+    metadata:
+      labels:
+        app: nginx # ALERT: The label here must match the one in the deployment manifest
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.14.2
+          ports:
+            - containerPort: 80

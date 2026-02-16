@@ -1,0 +1,53 @@
+---
+# Persistent Volume Manifest - Lock
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: demo-pv
+spec:
+  storageClassName: manual # Specify storage class here e.g AWS, Azure
+  capacity:
+    storage: 2Gi
+  accessModes: # There are many types depending on need
+    - ReadWriteOnce
+  hostPath:
+    path: "/mnt/data"
+---
+# Persistent Volume Claim - Key
+# Values should look very similar to the Persistent Volume
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: demo-pvc
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+# Pod Manifest
+apiVersion: v1
+kind: Pod
+metadata:
+  name: demo-pod
+spec:
+  nodeSelector:
+    kubernetes.io/hostname: node-1
+  containers:
+    - name: demo-pod
+      image: nginx:1.14.2
+      ports:
+        - name: http
+          containerPort: 80
+          protocol: TCP
+      volumeMounts:
+        - name: pv-storage
+          mountPath: "/data"
+
+  volumes:
+    - name: pv-storage
+      persistentVolumeClaim:
+        claimName: demo-pvc # ALERT: Must match the PersistentVolumeClaim Name
+---
