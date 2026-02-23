@@ -5,3 +5,4 @@ nextjs/.next
 nextjs/node_modules
 .env
 **/models/
+.venv
