@@ -56,6 +56,7 @@ A collection of code snippets and notes from my various learnings and tutorials
 - **DVC** - Exploring use of DVC. Notes for commands
 - **Kubernetes** - Introduction to Kubernetes with some manifests
 - **Agents** - Exploration on tools used to develop AI Agents
+- **imageGen** - Exploring traditional and SOTA image generation models
 
 ## :handshake: Contact
 
