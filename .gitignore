@@ -1,8 +1,18 @@
+# Data Files
 **/data/
 *.csv
+__pycache__
+
+# Mac Files
 .DS_Store
+
+# Web Dev files
 nextjs/.next
 nextjs/node_modules
+
+# Environment variables
 .env
+
+# Models and environment
 **/models/
 .venv
