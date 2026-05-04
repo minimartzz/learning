@@ -42,6 +42,6 @@ try:
         description="A simple agent that uses MCP tools to answer questions",
     )
 
-    demo.launch()
+    demo.launch(mcp_server=True)
 finally:
     mcp_client.disconnect()
