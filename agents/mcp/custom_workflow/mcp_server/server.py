@@ -103,17 +103,15 @@ async def analyse_file_changes(
             commit_command, capture_output=True, text=True, cwd=cwd
         )
 
-        return json.dumps(
-            {
-                "stats": stats_result.stdout,
-                "total_lines": len(trunc_lines),
-                "diff": git_diff
-                if include_diff
-                else "Use include_diff=True to see diff",
-                "files_changed": files_result.stdout,
-                "commit_message": commit_result.stdout,
-            }
-        )
+        out = {
+            "stats": stats_result.stdout,
+            "total_lines": len(trunc_lines),
+            "diff": git_diff if include_diff else "Use include_diff=True to see diff",
+            "files_changed": files_result.stdout,
+            "commit_message": commit_result.stdout,
+        }
+
+        return json.dumps(out)
 
     except subprocess.CalledProcessError as e:
         return json.dumps({"error": f"Git error: {e.stderr}"})
@@ -121,7 +119,7 @@ async def analyse_file_changes(
         return json.dumps({"error": str(e)})
 
 
-@mcp.tool
+@mcp.tool()
 async def get_pr_templates() -> str:
     """
     Get a list of all available PR templates in the template folder
@@ -142,7 +140,7 @@ async def get_pr_templates() -> str:
     return json.dumps(templates)
 
 
-@mcp.tool
+@mcp.tool()
 async def suggest_template(changes_summary: str, change_type: str) -> str:
     templates = await get_pr_templates()
     templates = json.loads(templates)
