@@ -16,3 +16,7 @@ nextjs/node_modules
 # Models and environment
 **/models/
 .venv
+
+# Test data
+github_events.json
+.coverage
