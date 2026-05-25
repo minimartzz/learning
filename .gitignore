@@ -23,3 +23,4 @@ github_events.json
 
 # Langgraph
 .langgraph_api/
+state/
