@@ -17,6 +17,7 @@ dependencies = [
     "python-dotenv>=1.2.2",
     "smolagents[mcp]>=1.22.0",
     "textblob>=0.20.0",
+    "trustcall>=0.0.39",
     "wikipedia>=1.4.0",
 ]
 
