@@ -6,6 +6,9 @@ __pycache__
 # Mac Files
 .DS_Store
 
+# Tailwind
+.yarn
+
 # Web Dev files
 nextjs/.next
 nextjs/node_modules
@@ -24,3 +27,6 @@ github_events.json
 # Langgraph
 .langgraph_api/
 state/
+
+# Deepeval
+.deepeval
