@@ -5,6 +5,7 @@ A simple RAG based agent that takes in documents, performs the embedding transfo
 stores it in memory and retrieves and generates output from a query
 """
 
+from deepeval.test_case import RetrievedContextData
 from langchain_community.vectorstores import FAISS
 from langchain_core.messages import HumanMessage
 from langchain_ollama import ChatOllama, OllamaEmbeddings
@@ -45,10 +46,10 @@ class RAGAgent:
 
         return self.vector_store_class.from_documents(documents, self.embedding_model)
 
-    def retrieve(self, query: str):
+    def retrieve(self, query: str) -> list[str | RetrievedContextData]:
         """Retrieve the most relevant docs and parts"""
         docs = self.vector_store.similarity_search(query, k=self.k)
-        context = [doc.page_content for doc in docs]
+        context: list[str | RetrievedContextData] = [doc.page_content for doc in docs]
         return context
 
     def generate(
@@ -57,7 +58,7 @@ class RAGAgent:
         retrieved_docs: list,
         llm_model=None,
         prompt_template: str | None = None,
-    ):
+    ) -> str:
         """Generates a response based on the retrieved documents"""
         context = "\n".join(retrieved_docs)
         model = llm_model or ChatOllama(model="qwen2.5:14b-instruct", temperature=0)
@@ -67,7 +68,7 @@ class RAGAgent:
             " found, respond with: 'No relevant information available.'"
         )
         prompt = prompt.format(context=context, query=query)
-        return model.invoke([HumanMessage(content=prompt)]).content
+        return str(model.invoke([HumanMessage(content=prompt)]).content)
 
     def answer(self, query: str, llm_model=None, prompt_template: str | None = None):
         retrieved_docs = self.retrieve(query)

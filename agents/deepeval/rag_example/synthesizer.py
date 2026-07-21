@@ -1,3 +1,9 @@
+"""
+Test Scneario Synthesizer
+============================
+Uses an LLM to generate a series of input/ scenarios for evaluation of agents
+"""
+
 from deepeval.dataset import EvaluationDataset
 from deepeval.models import OllamaEmbeddingModel, OllamaModel
 from deepeval.synthesizer import Synthesizer
