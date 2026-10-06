@@ -1,10 +1,11 @@
 fn main() {
     // 1. Immutable and Mutable variables
-    let mut x = 5;
+    let x = 5;
+    let mut z = 5;
     println!("The value of x is: {x}");
     // x = 6;  // ALERT: Error because value is not mutable
-    x = 6;
-    println!("The value of x is: {x}");
+    z = 6;
+    println!("The value of z is: {z}");
 
     // 2. Constants
     //   - Constants are not mutable at all
