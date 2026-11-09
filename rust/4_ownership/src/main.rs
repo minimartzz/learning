@@ -35,7 +35,7 @@ fn main() {
 //      clean up 2 variables (s1 and s2) from memory it will try to do it twice, but with only 1 set of
 //      underlying data -- double free error
 // - Declaring s2 will make s1 invalid
-// - Rust never makes a deep copy, any vopyinh can be considered inexpensive
+// - Rust never makes a deep copy, any copying can be considered inexpensive
 fn double_free_error() {
     let s1 = String::from("hello");
     let s2 = s1;
